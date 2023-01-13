@@ -1,0 +1,66 @@
+\chapter*{Introduction}
+\addcontentsline{toc}{chapter}{Introduction}
+
+\section*{Foreword}
+\addcontentsline{toc}{section}{Foreword}
+
+In recent years, we have seen more and more projects steer away from traditional relational databases, instead opting for NoSQL databases thanks to their many advantages, especially in the world of big data where replication and sharding are requirements, not benefits.
+Similarly, we are seeing an increase in the usage of multi-model data, whereby different parts of data are stored in their most natural representation, utilizing the specifics of each particular model.
+
+Where there is data, there is a need for querying, and multi-model scenarios are no exception.
+However, querying multi-model data is exceptionally challenging, as querying data from multiple models in the same query is non-trivial.
+Many databases today are multi-model to some extent, supporting a couple of selected models, but in general their query languages only support the secondary models as an extension.
+For this reason, the vast majority of existing multi-model querying approaches require the user to have knowledge of the particular data models when composing queries.
+This can be highly impractical, especially when the data is stored across multiple different databases, necessitating the knowledge of multiple query languages and the composition and unification of query results.
+
+We believe that an approach allowing the composition of queries over multiple models and databases in a unified, model-agnostic way would be very beneficial, greatly reducing the complexity of multi-model querying.
+One such approach was proposed in 2021 in the form of MultiCategory~\cite{multicategory}, allowing unified multi-model querying based on functional folds, supported by a theoretical framework based on category theory~\cite{multicategory_theory}.
+However, while this approach is certainly robust, we question its wide applicability, as the provided query language carries considerable difficulty in forming queries for users who are not intimately familiar with functional programming.
+In addition, this approach does not take into consideration data redundancy, which is a key feature of multi-model, multi-database environments.
+For this reason, we believe that a more approachable solution is needed, ideally with a familiar and understandable query language.
+
+In order to query multi-model data in a unified way, we need a unified representation.
+In the past, several approaches have attempted to use category theory to model data with support for querying, including Spivak et al.~\cite{spivak} with their Categorical Query Language (CQL) for relational data, and CGOOD~\cite{cgood} which focuses on the object-oriented data model with its own query language based on graph pattern matching.
+However, these approaches do not fully consider multi-model data in its generality.
+Luckily for us, an approach has been recently proposed for the unified representation of general multi-model data using category theory~\cite{one_model}\cite{unified_representation}.
+When presenting their findings, the authors of this unified representation expressed the possibility that their categorical model could be used as a basis for a unified multi-model querying solution.
+This is where this thesis begins its work, attempting to design a new multi-model querying approach with little in the way of approaches to rely on.
+
+\section*{Goals}
+\addcontentsline{toc}{section}{Goals}
+
+First of all, a query language is necessary for any kind of querying. Since the unified categorical data representation we will be relying on~\cite{one_model}\cite{unified_representation} represents data using category theory, our language will need to be a categorical query language.
+While we could design a query language from the ground up, it is considerably easier to start with another language as a template, making modifications as necessary.
+Since a category may be visualized in the form of a directed multigraph, the first goal of this thesis is to analyze existing graph query languages, and to adapt one of them to be suitable for categorical data.
+In this way, we aim to design a categorical multi-model query language.
+
+While the design of such a query language allows the formation of multi-model queries in a unified fashion, a query language is nothing without a concrete plan of how to implement it.
+The proposal of an approach for the implementation of such a query language is arguably even more complicated than designing the language itself however, as many sparsely-studied problems specific to multi-model data arise along the way.
+Examples of these problems include, but are not limited to: the construction of multi-model query plans, finding the optimal order of multi-model joins, and evaluating the cost of multi-model query plans.
+As such, the second goal of this thesis is to propose an approach for the implementation of our query language.
+As we lack relevant prior approaches to base our work on, we do not aspire for our proposed design to be universal or well-optimized.
+Instead, we will focus on the clarity and simplicity of proposed algorithms and approaches, to form a solid basis for future work on this subject.
+
+With a multi-model query language and an implementation proposal in hand, we need to verify that our proposal is well-formed.
+For this reason, the third goal of this thesis is to create a proof-of-concept implementation of our proposed multi-model querying approach, ultimately testing our proposal in a multi-model, multi-database scenario.
+Due to the sheer amount of work required for the design of the query language and supporting algorithms in such a complex problem domain with so little related work to fall back on, it is not within the scope of this implementation to be a fully-fledged, optimized, user-friendly piece of software.
+Instead, its purpose is to verify the validity of the concept itself, and to provide a platform for the examination of the strengths and weaknesses of the approach.
+
+Finally, we recognize the fact that regardless of the amount of effort and time spent, no first attempt at anything is ever perfect.
+For this reason, the fourth and last goal of this thesis is to be as critical as possible when discussing the possible limitations and weaknesses of our proposals.
+This will ensure that this thesis can become a jump-off point for future related works, which can iterate and improve upon our proposals, moving them closer to real-world applicability.
+
+\section*{Thesis Structure}
+\addcontentsline{toc}{section}{Thesis Structure}
+
+First, we will briefly introduce multi-model data in \cref{multimodel}, and we will showcase some of the most popular data models.
+Afterwards, we will give a brief overview of the unified categorical representation of multi-model data which we will be using as a basis for our work in \cref{categorical:chapter}.
+The final piece of related work we will examine is the set of existing graph query languages, where we will attempt to analyze the existing approaches to decide upon a candidate language to modify for our problem domain.
+This examination is presented in \cref{querylanguages}.
+
+Our original work starts with \cref{mmql}, where we present MMQL, a unified and declarative multi-model query language which we created, taking inspiration from the SPARQL query language.
+In addition we will present the algorithms and approaches necessary for the implementation of MMQL in \cref{algorithms}, but we should make it clear that the goal of this chapter is not a concrete implementation, but rather a proposal of the algorithms necessary for such an implementation.
+
+Moving on to the practical part of this thesis, in \cref{quecat} we present MM-quecat, our proof-of-concept implementation of MMQL, allowing basic unified querying with PostgreSQL and MongoDB.
+In \cref{querytools}, we briefly present our ongoing related work on a user interface for MM-quecat, showing the user experience we are aiming for.
+Finally, in \cref{eval} we experimentally evaluate our solution, measuring the amount of overhead compared to native queries, as well as analyzing the main performance bottlenecks of our approach in MM-quecat.

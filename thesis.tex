@@ -1,0 +1,241 @@
+%%% The main file. It contains definitions of basic parameters and includes all other parts.
+
+\begin{filecontents*}[overwrite]{\jobname.xmpdata}
+    \Title{Unified Querying of Multi-Model Data}
+    \Author{Daniel Crha}
+    \Subject{The vast majority of current multi-model querying solutions require the user to have intimate knowledge of the specific models involved. There exists a single approach for truly unified multi-model querying, but this approach is not practically usable for most users due to its complexity. In this thesis we present MMQL, a multi-model query language based on category theory, which was designed using SPARQL as a basis. Using MMQL, users can formulate multi-model, multi-database queries without needing to know about the way the data is stored. We also present our proposal for the implementation of MMQL, including the required supporting algorithms. To verify the validity of our proposal, we built the proof-of-concept tool MM-quecat, an implementation of basic MMQL concepts. We then evaluated MM-quecat in a scenario involving PostgreSQL and MongoDB, querying both databases with a single MMQL query. As we present one of the first ever approaches for unified multi-model querying, we also analyze the weaknesses and limitations of the proposed approach, opening the door for future iterations and improvements.}
+    \Keywords{multi-model databases\sep querying\sep graph representation}
+    \Publisher{Charles University}
+\end{filecontents*}
+
+
+%% Settings for single-side (simplex) printing
+% Margins: left 40mm, right 25mm, top and bottom 25mm
+% (but beware, LaTeX adds 1in implicitly)
+\documentclass[12pt,a4paper]{report}
+\setlength\textwidth{145mm}
+\setlength\textheight{247mm}
+\setlength\oddsidemargin{15mm}
+\setlength\evensidemargin{15mm}
+\setlength\topmargin{0mm}
+\setlength\headsep{0mm}
+\setlength\headheight{0mm}
+% \openright makes the following text appear on a right-hand page
+\let\openright=\clearpage
+
+%% Settings for two-sided (duplex) printing
+% \documentclass[12pt,a4paper,twoside,openright]{report}
+% \setlength\textwidth{145mm}
+% \setlength\textheight{247mm}
+% \setlength\oddsidemargin{14.2mm}
+% \setlength\evensidemargin{0mm}
+% \setlength\topmargin{0mm}
+% \setlength\headsep{0mm}
+% \setlength\headheight{0mm}
+% \let\openright=\cleardoublepage
+
+%% Generate PDF/A-2u
+\usepackage[a-2u]{pdfx}
+
+%% Character encoding: usually latin2, cp1250 or utf8:
+\usepackage[utf8]{inputenc}
+
+%% Prefer Latin Modern fonts
+\usepackage{lmodern}
+
+%% Further useful packages (included in most LaTeX distributions)
+\usepackage{amsmath}        % extensions for typesetting of math
+\usepackage{amsfonts}       % math fonts
+\usepackage{amsthm}         % theorems, definitions, etc.
+\usepackage{bbding}         % various symbols (squares, asterisks, scissors, ...)
+\usepackage{bm}             % boldface symbols (\bm)
+\usepackage{graphicx}       % embedding of pictures
+\usepackage{fancyvrb}       % improved verbatim environment
+\usepackage{natbib}         % citation style AUTHOR (YEAR), or AUTHOR [NUMBER]
+\usepackage[nottoc]{tocbibind} % makes sure that bibliography and the lists
+			    % of figures/tables are included in the table
+			    % of contents
+\usepackage{dcolumn}        % improved alignment of table columns
+\usepackage{booktabs}       % improved horizontal lines in tables
+\usepackage{paralist}       % improved enumerate and itemize
+\usepackage{xcolor}         % typesetting in color
+
+% \usepackage{todonotes}      % TODOs with the \todo{} macro
+\usepackage[nameinlink,capitalise, noabbrev]{cleveref} % capitalized references
+\hyphenation{chapter section subsection table figure algorithm}
+
+\graphicspath{ {./img/} }  % path to images folder
+\Crefname{appendix}{Attachment}{Attachment} % use 'Attachment' instead of 'Appendix'
+
+\usepackage[ruled,vlined,linesnumbered,resetcount,algochapter]{algorithm2e}
+\crefname{algocf}{Algorithm}{Algorithms}
+\Crefname{algocf}{Algorithm}{Algorithms}
+
+%%% Shadows preamble
+\usepackage{tikz}
+\usetikzlibrary{shadows,calc}
+
+% code adapted from https://tex.stackexchange.com/a/11483/3954
+
+% some parameters for customization
+\def\shadowshift{3pt,-3pt}
+\def\shadowradius{6pt}
+
+\colorlet{innercolor}{black!60}
+\colorlet{outercolor}{gray!05}
+
+% this draws a shadow under a rectangle node
+\newcommand\drawshadow[1]{
+    \begin{pgfonlayer}{shadow}
+        \shade[outercolor,inner color=innercolor,outer color=outercolor] ($(#1.south west)+(\shadowshift)+(\shadowradius/2,\shadowradius/2)$) circle (\shadowradius);
+        \shade[outercolor,inner color=innercolor,outer color=outercolor] ($(#1.north west)+(\shadowshift)+(\shadowradius/2,-\shadowradius/2)$) circle (\shadowradius);
+        \shade[outercolor,inner color=innercolor,outer color=outercolor] ($(#1.south east)+(\shadowshift)+(-\shadowradius/2,\shadowradius/2)$) circle (\shadowradius);
+        \shade[outercolor,inner color=innercolor,outer color=outercolor] ($(#1.north east)+(\shadowshift)+(-\shadowradius/2,-\shadowradius/2)$) circle (\shadowradius);
+        \shade[top color=innercolor,bottom color=outercolor] ($(#1.south west)+(\shadowshift)+(\shadowradius/2,-\shadowradius/2)$) rectangle ($(#1.south east)+(\shadowshift)+(-\shadowradius/2,\shadowradius/2)$);
+        \shade[left color=innercolor,right color=outercolor] ($(#1.south east)+(\shadowshift)+(-\shadowradius/2,\shadowradius/2)$) rectangle ($(#1.north east)+(\shadowshift)+(\shadowradius/2,-\shadowradius/2)$);
+        \shade[bottom color=innercolor,top color=outercolor] ($(#1.north west)+(\shadowshift)+(\shadowradius/2,-\shadowradius/2)$) rectangle ($(#1.north east)+(\shadowshift)+(-\shadowradius/2,\shadowradius/2)$);
+        \shade[outercolor,right color=innercolor,left color=outercolor] ($(#1.south west)+(\shadowshift)+(-\shadowradius/2,\shadowradius/2)$) rectangle ($(#1.north west)+(\shadowshift)+(\shadowradius/2,-\shadowradius/2)$);
+        \filldraw ($(#1.south west)+(\shadowshift)+(\shadowradius/2,\shadowradius/2)$) rectangle ($(#1.north east)+(\shadowshift)-(\shadowradius/2,\shadowradius/2)$);
+    \end{pgfonlayer}
+}
+
+% create a shadow layer, so that we don't need to worry about overdrawing other things
+\pgfdeclarelayer{shadow} 
+\pgfsetlayers{shadow,main}
+
+\newsavebox\mybox
+\newlength\mylen
+
+\newcommand\shadowimage[2][]{%
+\setbox0=\hbox{\includegraphics[#1]{#2}}
+\setlength\mylen{\wd0}
+\ifnum\mylen<\ht0
+\setlength\mylen{\ht0}
+\fi
+\divide \mylen by 120
+\def\shadowshift{\mylen,-\mylen}
+\def\shadowradius{\the\dimexpr\mylen+\mylen+\mylen\relax}
+\begin{tikzpicture}
+\node[anchor=south west,inner sep=0] (image) at (0,0) {\includegraphics[#1]{#2}};
+\drawshadow{image}
+\end{tikzpicture}}
+
+%%% Basic information on the thesis
+
+% Thesis title in English (exactly as in the formal assignment)
+\def\ThesisTitle{Unified Querying of Multi-Model Data}
+
+% Author of the thesis
+\def\ThesisAuthor{Bc. Daniel Crha}
+
+% Year when the thesis is submitted
+\def\YearSubmitted{2023}
+
+% Name of the department or institute, where the work was officially assigned
+% (according to the Organizational Structure of MFF UK in English,
+% or a full name of a department outside MFF)
+\def\Department{Department of Software Engineering}
+
+% Is it a department (katedra), or an institute (ústav)?
+\def\DeptType{Department}
+
+% Thesis supervisor: name, surname and titles
+\def\Supervisor{doc. RNDr. Irena Holubová, Ph.D.}
+
+% Supervisor's department (again according to Organizational structure of MFF)
+\def\SupervisorsDepartment{Department of Software Engineering}
+
+% Study programme and specialization
+\def\StudyProgramme{Computer Science}
+\def\StudyBranch{Software and Data Engineering}
+
+% An optional dedication: you can thank whomever you wish (your supervisor,
+% consultant, a person who lent the software, etc.)
+\def\Dedication{%
+Most of all, I want to thank my supervisor Irena Holubová for the countless hours she spent on the consultation and review of my thesis. Similarly, I want to thank Pavel Koupil for sharing so much of his knowledge and providing helpful insight. Finally, I want to thank my girlfriend and my mother for supporting me through the many bumps I encountered on the road through university, and for bringing joy to my life when I needed it the most.
+}
+
+% Abstract (recommended length around 80-200 words; this is not a copy of your thesis assignment!)
+\def\Abstract{%
+The vast majority of current multi-model querying solutions require the user to have intimate knowledge of the specific models involved. There exists a single approach for truly unified multi-model querying, but this approach is not practically usable for most users due to its complexity. In this thesis we present MMQL, a multi-model query language based on category theory, which was designed using SPARQL as a basis. Using MMQL, users can formulate multi-model, multi-database queries without needing to know about the way the data is stored. We also present our proposal for the implementation of MMQL, including the required supporting algorithms. To verify the validity of our proposal, we built the proof-of-concept tool MM-quecat, an implementation of basic MMQL concepts. We then evaluated MM-quecat in a scenario involving PostgreSQL and MongoDB, querying both databases with a single MMQL query. As we present one of the first ever approaches for unified multi-model querying, we also analyze the weaknesses and limitations of the proposed approach, opening the door for future iterations and improvements.
+}
+
+% 3 to 5 keywords (recommended), each enclosed in curly braces
+\def\Keywords{%
+{multi-model databases}, {querying}, {graph representation}
+}
+
+%% The hyperref package for clickable links in PDF and also for storing
+%% metadata to PDF (including the table of contents).
+%% Most settings are pre-set by the pdfx package.
+\hypersetup{unicode}
+\hypersetup{breaklinks=true}
+
+% Definitions of macros (see description inside)
+\include{macros}
+
+% Title page and various mandatory informational pages
+\begin{document}
+\include{title}
+
+%%% A page with automatically generated table of contents of the master thesis
+
+\tableofcontents
+
+%%% Each chapter is kept in a separate file
+\include{chapters/preface}
+
+% These chapters are basically "Related Work"
+\include{chapters/datamodels}
+\include{chapters/categorical}
+\include{chapters/querylanguages}
+
+% These chapters explain what I have designed (language, algorithms)
+\include{chapters/mmql}
+\include{chapters/algorithms}
+
+% These chapters describe the actual implementation of what I programmed
+\include{chapters/implementation}
+\include{chapters/querytools}
+\include{chapters/evaluation}
+
+\include{chapters/epilog}
+
+%%% Bibliography
+\include{bibliography}
+
+%%% Figures used in the thesis (consider if this is needed)
+\listoffigures
+
+%%% Tables used in the thesis (consider if this is needed)
+%%% In mathematical theses, it could be better to move the list of tables to the beginning of the thesis.
+\listoftables
+
+%%% Abbreviations used in the thesis, if any, including their explanation
+%%% In mathematical theses, it could be better to move the list of abbreviations to the beginning of the thesis.
+\include{chapters/abbreviations.tex}
+
+%%% Attachments to the master thesis, if any. Each attachment must be
+%%% referred to at least once from the text of the thesis. Attachments
+%%% are numbered.
+%%%
+%%% The printed version should preferably contain attachments, which can be
+%%% read (additional tables and charts, supplementary text, examples of
+%%% program output, etc.). The electronic version is more suited for attachments
+%%% which will likely be used in an electronic form rather than read (program
+%%% source code, data files, interactive charts, etc.). Electronic attachments
+%%% should be uploaded to SIS and optionally also included in the thesis on a~CD/DVD.
+%%% Allowed file formats are specified in provision of the rector no. 72/2017.
+\appendix
+\chapter{Attachments}
+
+\input{attachments/grammar}
+\pagebreak
+\input{attachments/explainpostgres}
+\pagebreak
+\input{attachments/explainmongodb}
+\pagebreak
+\input{attachments/explainneo4j}
+
+\openright
+\end{document}

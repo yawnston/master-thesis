@@ -1,0 +1,504 @@
+\chapter{MMQL -- A Categorical Query Language}
+\label{mmql}
+
+So far, we have examined the particulars of multi-model data, introduced a categorical model for representing said data, and we have formulated the need for a query language to query this model.
+Based on requirements specified in~\cref{category:section:querylanguage}, this chapter introduces the \textbf{Multi-Model Query Language (MMQL)}, a query language created specifically to query the aforementioned categorical representation.
+Before we introduce MMQL, the reader may get a taste of the language by examining the example query shown in~\cref{mmql:figure:example}.
+
+\begin{figure}[ht]
+\begin{code}
+SELECT {
+    ?customer ordered ?productName ;
+        name ?customerName .
+}
+WHERE {
+    ?product 49 ?productName ;
+        -39/36 ?order .
+    
+    ?order -23/21 ?customer .
+    ?customer 3 ?customerName .
+
+    FILTER(?productName = "Lord of the Rings")
+}
+\end{code}
+\caption{An example query in MMQL, retrieving customers who ordered the Lord of the Rings book. The corresponding schema category is shown in~\cref{fig:schemacategory}.}\label{mmql:figure:example}
+\end{figure}
+
+MMQL is a query language for categorical data which operates on a schema category.
+Its purpose is to query data in a unified way using the categorical representation, again utilizing categorical data representation to return the data in a unified representation.
+As such, if data stored across a variety of different databases is modeled using a schema category, one can query all of that data using a single, unified query language.
+Under the covers, this singular query is translated into potentially many subqueries in the relevant databases' own query languages, and the results of those queries are joined to create the final query result.
+We should note that MMQL is a querying-only language, it does not aspire to handle any data modifications.
+
+Designing a query language is no trivial task, therefore this chapter pays special attention to the design process behind MMQL, and various key decisions made during its design.
+This chapter explores the major concepts in MMQL, but its full grammar is available in \cref{attachment:grammar}.
+A comparison of constructs supported in MMQL is shown in~\cref{tab:MM-sparql}, where we show a feature comparison with selected popular query languages, which are used in some of the most popular databases in their respective models (as we discussed in \cref{multimodel}).
+
+\begin{scriptsize}
+\begin{table}[h]
+\caption{Comparison of constructs supported in MMQL and in single-model query languages~\cite{mm_quecat}.}
+\label{tab:MM-sparql}
+\def\arraystretch{1.2}
+\begin{tabular}{
+%|l|llll|
+%|
+    >{\raggedright\arraybackslash}p{23.9mm}
+    |
+    >{\raggedright\arraybackslash}p{24.9mm}
+    >{\raggedright\arraybackslash}p{23.9mm}
+    %>{\raggedright\arraybackslash}p{13.0mm}
+    >{\raggedright\arraybackslash}p{25.9mm}
+    >{\raggedright\arraybackslash}p{23.9mm}
+%    |
+    }
+
+% \begin{tabular}{|l|l%l
+% ll%l
+% ll|}
+\toprule
+\textbf{MMQL}  & \textbf{PostgreSQL (SQL)}  & \textbf{Neo4j (Cypher)}  & \textbf{MongoDB}  & \textbf{Cassandra (CQL)} \\
+% \hline
+% MMQL         & SQL                 %& AFL (SciDB)
+% & Cypher                  %& SPARQL              %& Solr (RiakKV)  
+% & MongoDB              & CQL (Cassandra)    \\
+\midrule
+%Data source
+FROM & FROM                %& project\#1
+& -            %& FROM                %& bucket specification 
+& db.collection       & FROM               \\
+%Projection
+SELECT & SELECT              %& project
+& RETURN                  %& SELECT              %& fl             
+& \$project & SELECT             \\
+%Selection
+WHERE & WHERE               %& filter
+& WHERE                   %& FILTER              %& fq             
+& \$match   & WHERE              \\
+%Filtering
+FILTER & condition(s) & condition(s) & condition(s) & condition(s) \\ %% FILTER u nás
+%Aggregation
+COUNT, MIN, MAX, AVG & GROUP BY ... HAVING %& aggregate
+& COUNT, MIN, MAX, AVG %& GROUP BY ... HAVING %& MapReduce      
+& aggregate(...)       & GROUP BY           \\
+%Join/traversal
+graph pattern & JOIN & MATCH & \$lookup & - \\
+% Join             &  JOIN        %&  (cross\_)join
+% &  -                   %&  -\#5            %&  link walking    
+% &  \$lookup            &  -               \\
+% Graph traversal       &  JOIN           %&  (cross\_)join
+% &  MATCH                  %&  graph pattern     %&  link walking    
+% &  -                   &  -               \\
+% Unbounded traversal    &  WITH RECURSIVE %&  -                  
+% &  MATCH with *                %&  graph pattern     %&  -               
+% &  -                   &  -               \\
+% Optional
+OPTIONAL             &  OUTER JOIN     %&  -                  
+&  OPTIONAL MATCH         %&  OPTIONAL         %&  rq (re-ranking) 
+&  -                   &  -               \\
+%Union
+UNION &  UNION          %&  merge              
+&  UNION                  %&  UNION            %&  OR              
+&  \$unionWith         &  -               \\
+%Except
+EXCEPT &  EXCEPT         %&  -                  
+&  WHERE NOT              %&  MINUS\#7         %&  AND NOT         
+&  \$setDifference     &  -               \\
+%Order
+ORDER BY &  ORDER BY       %&  sort               
+&  ORDER BY               %&  ORDER BY         %&  sort            
+&  sort                &  ORDER BY        \\
+%Skipping
+OFFSET &  OFFSET         %&  limit (... offset) 
+&  SKIP                   %&  OFFSET           %&  start           
+&  skip                &  -               \\
+%Limit
+LIMIT &  LIMIT          %&  limit              
+&  LIMIT                  %&  LIMIT            %&  rows            
+&  limit               &  LIMIT           \\
+%Distinct
+DISTINCT &  DISTINCT       %&  uniq               
+&  DISTINCT               %&  DISTINCT         %&  facet           
+&  distinct            &  DISTINCT        \\
+%Aliasing
+AS &  AS             %&  AS                 
+&  AS                     %&  AS               %&  displayName:    
+&  "alias" : "\$field" &  AS              \\
+\{ SELECT ... \}     &  ( SELECT ... ) %&  \#3                
+&  CALL \ MATCH \       %&  \ SELECT ... \ %&  ( ... )         
+&  -                &  -     \\ 
+\bottomrule
+\end{tabular}
+\end{table}
+\end{scriptsize}
+
+\section{Taking Inspiration from SPARQL}
+
+In~\cref{querylanguages}, we have discussed existing graph query languages which may be suitable for the purpose of querying categorical data.
+Naturally, it is easier to modify and adapt an existing query language, than to design one from the ground up.
+Not only is designing a complete grammar a complicated process, but one must pay close attention to making sure that the language has the desired expressive power, while maintaining ease of use, readability, and ease of implementation.
+As such, MMQL is based on SPARQL~\cite{sparql}, a query language for RDF~\cite{rdf} data discussed in~\cref{querylanguages:subsection:sparql}.
+
+As a reminder, SPARQL queries operate on the concept of RDF triples - tuples in the form of \textit{subject-predicate-object}. As RDF expresses data in the form of IRIs, all three members of said triples may be IRIs.
+This is actually the catalyst of why SPARQL was chosen as the base language for MMQL - having a language which works with global identifiers transitions easily into working with globally-identified schema objects and morphisms.
+For example, in SPARQL, we may use the triple \texttt{?customer <http://xmlns.com/foaf/0.1/name> "Alice Anderson"} to describe a customer variable having the name Alice Anderson.
+An important observation is that a schema category with its objects and morphisms is reminiscent of an RDF graph.
+The basic idea of MMQL is then to replace IRIs in SPARQL subjects and objects with references to schema category objects, and to replace IRIs in SPARQL properties with references to schema category morphisms.
+If we have a schema morphism with the signature of 42 which refers to the relationship between a customer and their name, we can express an equivalent triple in MMQL like so: \texttt{?customer 42 "Alice Anderson"}.
+
+While it is not immediately clear that such a modification to SPARQL will yield a reasonable categorical query language, the suggestion itself is not so far-fetched.
+However, it is not yet obvious why SPARQL was chosen as the base language for MMQL.
+The first reason for that has already been touched on slightly, which is the fact that modifying an existing language is simply easier from a development point of view.
+However, the more important reason is the reason of usability - SPARQL is very good at expressing complex graph patterns, including constructs like paths in a graph.
+When working with a more complex schema category, it is imperative that compound morphisms are easy to express in the query language, allowing greater readability and better expressiveness of the language.
+SPARQL with its property paths~\cite{sparql_propertypaths} allows the chaining of properties into paths in the property graph, allowing the user to express a ``transitive friendship'', i.e. friends of friends recursively, using the simple form \texttt{?customer <http://xmlns.com/foaf/0.1/knows>+ ?friend}, meaning that the \texttt{http://xmlns.com/foaf/0.1/knows} occurs in the path 1 or more times.
+Similarly, it is possible to chain together different properties, allowing us to retrieve the name of a friend: \texttt{?customer} \texttt{<http://xmlns.com/foaf/0.1/knows>} \texttt{/ <http://xmlns.com/foaf/0.1/name>} \texttt{?friendName}.
+It is this capability that proves very important when working with categorical data, because it maps perfectly to compound morphisms.
+As such, if the respective morphisms would have the signatures 60 and 42, we could use the MMQL notation \texttt{?customer 60/42 ?friendName}.
+This method of graph traversal is very intuitive and allows MMQL to be very expressive when working with the schema category.
+
+\section{Design Process}
+
+Before we start introducing the various concepts in MMQL, we will shortly describe the process used to arrive at the current iteration of MMQL, as well as the supporting algorithms presented in~\cref{algorithms}.
+Firstly, we evaluated the graph query languages discussed in~\cref{querylanguages}, and selected SPARQL as the best candidate for adaption to a categorical domain, for reasons specified in the previous section.
+Afterwards, we used an iterative process where we incrementally took concepts from SPARQL one-by-one and attempted to transition them to work with our categorical data model.
+This was a very lengthy and cumbersome process, however it was aided by a single key fact, which is the power of the categorical model.
+Since the categorical model we are using has the capability of representing multi-model data in a unified way, we only need to worry about supporting all concepts of the categorical model itself, at which point we will transitively support the relevant features of the various data models.
+Even so, the design process was arduous, which is why it was aided by a set of approximately 20 sample scenarios, which the author of this thesis constructed to aid in the iterative process.
+With each new iteration of MMQL or its supporting algorithms, they were manually evaluated in these scenarios on paper, and notes were made of possible issues arising from the current iteration.
+In this way, we arrived at the form in which MMQL and its supporting algorithms are presented in this thesis.
+These scenarios changed dramatically over time as the proposed approach evolved, and because they are not particularly relevant to presenting the final iteration of MMQL and its supporting algorithms, they are omitted from this thesis.
+
+\section{Basic Concepts of MMQL}
+
+To see the bare bones of MMQL at work, let us look at the query shown in \cref{mmql:figure:basic}.
+Just like SPARQL, each query consists of a few main clauses, the mandatory ones being \texttt{SELECT} and \texttt{WHERE}.
+We will start by introducing the \texttt{WHERE} clause, since it is responsible for the selection of the data, with the \texttt{SELECT} clause being responsible for projection to the desired form.
+
+\begin{figure}[ht]
+\begin{code}
+SELECT {
+    ?customer name ?name .
+}
+WHERE {
+    ?customer 42 ?name .
+}
+\end{code}
+\caption{A basic MMQL query selecting customer names.}\label{mmql:figure:basic}
+\end{figure}
+
+\subsection{WHERE Clause}
+\label{mmql:subsection:where}
+
+The \texttt{WHERE} clause defines a graph pattern, using triples of the form \textit{subject-predicate-object}.
+Each such triple must also end with a period, marking its end.
+This graph pattern defines the data which should be matched by the query, as per the schema category.
+A \textbf{variable} is defined using the syntax \texttt{?varName}, with each variable matching a specific schema object.
+Variables are strongly typed, meaning it is disallowed to use the same variable in positions implying different schema objects - if the variable \texttt{?customer} is used in the position of a schema object with a key of 10, it must always be used in that position.
+Unlike SPARQL, variables in MMQL may only be placed in the subject and object positions, they may never be in the predicate position.
+The reason for this decision is the fact that placing variables in the subject position (and therefore querying schema morphisms) has the semantics of querying the schema category itself and not the underlying data.
+These semantics are not desired for MMQL, as the schema category is simply a model of the data, and MMQL focuses on querying the data only.
+Looking at \cref{mmql:figure:where}, we can see examples of statements one may use in the \texttt{WHERE} clause.
+
+\begin{figure}[ht]
+\begin{code}
+WHERE {
+    // Simply traversing a morphism
+    ?customer 42 ?name .
+    // Morphism traversal in the opposite direction
+    ?name -42 ?customer .
+    // Chaining morphisms
+    ?customer 55/31 ?orderNumber .
+    // Repeating subjects - syntactic sugar for graph patterns
+    ?customer 42 ?name ;
+        55/31 ?orderNumber .
+    // Filtering data
+    FILTER(?orderNumber >= 15)
+    // Using aggregations
+    FILTER(?orderNumber = MAX(?orderNumber))
+    // Optional pattern - variables will be null if not found
+    OPTIONAL {
+        ?customer 23 ?address .
+    }
+}
+\end{code}
+\caption{A showcase of WHERE clause contents.}\label{mmql:figure:where}
+\end{figure}
+
+The job of the \texttt{WHERE} clause is to specify the data to query and bind variables to the matched data.
+Semantically, the \texttt{WHERE} clause induces a schema category, where each variable has its own schema object, such that there exists a homomorphism between this induced schema category and the original schema category.
+Such a homomorphism maps all schema objects corresponding to variables to the schema objects queried by those variables.
+As a result, we may think about the data matched by the \texttt{WHERE} clause as forming an instance category conforming to the aforementioned induced schema category, with other clauses of the query operating on this instance category.
+However, a more practical approach to reasoning about this is to imagine that the \texttt{WHERE} clause is matching graph patterns, and its result is a set of matching graph patterns, where each pattern contains a set of variable bindings to their real values.
+The other clauses would then operate on these graph patterns found within the data, performing tasks like projection or ordering.
+
+\subsection{SELECT Clause}
+
+At first glance, the \texttt{SELECT} clause looks a lot like the \texttt{WHERE} clause, which is because both clauses specify some kind of graph pattern.
+However, their semantics are very different.
+It is the job of the \texttt{SELECT} clause to project the matched data to a shape which is desired for the output of the query.
+Just like in SQL one might want to only query certain properties, or to return them in a given order, in MMQL, one may choose the schema to which the query results will adhere.
+
+\begin{figure}[ht]
+\begin{code}
+SELECT {
+    // Define new morphisms using alphanumeric identifiers
+    ?customer name ?customerName .
+    // Form more complex graph structures
+    ?customer ordered ?product .
+    ?product name ?productName .
+    // Syntactic sugar also applies here
+    ?customer name ?customerName ;
+        ordered ?product .
+    // Syntax for a blank node - node without data
+    // This is useful for creating new shapes in the graph
+    ?customer details _:customerDetails .
+    _:customerDetails name ?customerName .
+    // Aliasing and aggregations
+    ?customer orderedNum COUNT(DISTINCT ?productName) AS ?numProds .
+}
+\end{code}
+\caption{A showcase of SELECT clause contents.}\label{mmql:figure:select}
+\end{figure}
+
+The \texttt{SELECT} clause uses new morphism definitions, not the ones from the schema category.
+This allows the user to not just select parts of existing data in the same shape it is already in, but change the shape of the data altogether.
+Morphism definitions having user-defined names is useful, because for example if the user then takes the query results and converts them into JSON\footnote{\url{https://www.json.org/json-en.html}}, the JSON document will not only have a meaningful structure, but its properties will be aptly named.
+Please refer to \cref{mmql:figure:select} for examples of statements possible within the \texttt{SELECT} clause.
+
+Again, the \texttt{SELECT} clause has some specific semantics in terms of category theory.
+The \texttt{SELECT} clause induces a new schema category, and the results of the query form an instance category adhering to this schema category (which is different from the schema category used to model the data).
+
+Observant readers who are already familiar with SPARQL may note that the MMQL \texttt{SELECT} clause looks similar to the SPARQL \texttt{CONSTRUCT} clause, which is not a coincidence.
+Both clauses specify a graph pattern rather than a list of variables to return.
+However, because MMQL is a categorical query language, it also returns data in the categorical representation.
+It is naturally expected that a user may want to get the data in a more practical representation (such as JSON or RDF), however, this is not part of the query language, but rather is something that is handled by the tooling around MMQL.
+The topic of transforming data outputted by the query is expanded on further in~\cref{algo:subsection:transform}.
+
+It is also worth mentioning the optional \texttt{FROM} clause, which may be present between the \texttt{SELECT} and \texttt{WHERE} clause together with a schema category identifier.
+In the case that a particular MMQL query engine contains multiple defined schema categories, this gives the user the option to specify the one they wish to query.
+If there are multiple schema categories but the \texttt{FROM} clause is omitted, it is up to the query engine to decide which schema category is the default one to use in such cases.
+
+\section{Advanced Concepts of MMQL}
+
+So far, we have presented a sufficient amount of information for a reader to pick up MMQL at a very basic level.
+However, eventually, users will need more advanced constructs present in other query languages, like those pertaining to ordering or aggregating data.
+This chapter expands on those concepts, in no particular order.
+
+\subsection{ORDER BY Clause}
+
+Data ordering is a necessity for any query language, and MMQL naturally does include it.
+\cref{mmql:figure:orderby} shows the usage of ordering in MMQL - let us consider some items for which users are able to submit reviews with their ratings.
+As shown, we can use MMQL to calculate the average user rating for each item, and order those items by their average rating in descending order.
+
+\begin{figure}[ht]
+\begin{code}
+SELECT {
+    ?item averageRating AVG(?rating) AS ?avg .
+}
+WHERE {
+    ?review 40 ?item ;
+        42 ?rating .
+}
+ORDER BY ?avg DESC
+LIMIT 10
+OFFSET 20
+\end{code}
+\caption{A showcase of the ORDER BY, LIMIT and OFFSET clauses.}\label{mmql:figure:orderby}
+\end{figure}
+
+Semantically, if we consider the \texttt{SELECT} clause to return graph instances, then the \texttt{ORDER BY} clause introduces a higher-order graph, which dictates the relative ordering of those graph instances.
+In other words, we divide up the instance category corresponding to the \texttt{SELECT} clause into maximally connected components, and assign ordering to those components based on the ordering parameters.
+
+\subsection{LIMIT and OFFSET Clauses}
+
+To facilitate the incremental querying of a large amount of data, MMQL includes the \texttt{LIMIT} and \texttt{OFFSET} clauses.
+These clauses respectively limit the number of graphs matching the \texttt{SELECT} clause to return, and skip a specific number of them with respect to their ordering.
+
+It only makes sense to use the \texttt{LIMIT} and \texttt{OFFSET} clauses when grouped together with \texttt{ORDER BY}, as without it, the order of the results is undefined.
+As such, iteratively using \texttt{OFFSET} and \texttt{LIMIT} without \texttt{ORDER BY} may yield duplicate or missing records, depending on the implementation of MMQL and the state of underlying data in the data stores.
+
+\subsection{Advanced Graph Manipulation}
+
+While simple graph patterns introduced so far may be sufficient to get the job done in most scenarios, the advantage of MMQL is its great expressiveness when it comes to graph patterns.
+This subsection introduces a few helpful concepts in MMQL which will help the user write more expressive and readable queries.
+
+Morphism traversal and chaining was introduced in~\cref{mmql:figure:where}, but let us examine its semantics in more detail.
+When specifying a graph pattern of the form \texttt{?customer 55/31 ?orderNumber}, that is semantically equivalent to specifying the triples \texttt{?customer 55 ?order} and \texttt{?order 31 ?orderNumber}.
+However, it may still be useful to use morphism chaining whenever possible, as depending on the MMQL implementation, the query engine may optimize the query execution by discarding data which is not actually needed in the query, even if it is part of the queried subgraph.
+Morphism chaining may include the following modifiers: \texttt{|} to introduce alternative paths, \texttt{?}, \texttt{*} and \texttt{+} with the same semantics as in regular expressions (optional, repeated any number of times and repeated at least once, respectively), together with brackets \texttt{()} to control precedence.
+However, do note that in order for a repeated morphism to be valid, it must form a cycle in the schema category, otherwise such repetitions would not be possible.
+
+\begin{figure}[ht]
+\begin{code}
+SELECT {
+    _:sameOrder customer ?customerA ;
+        customer ?customerB ;
+        product ?productName .
+}
+WHERE {
+    ?customerA 55/36/12 ?productName .
+    ?customerB 55/36/12 ?productName .
+    
+    FILTER(?customerA != ?customerB)
+}
+\end{code}
+\caption{A query selecting two different customers who ordered an item with the same name.}\label{mmql:figure:samevar}
+\end{figure}
+
+The inquisitive reader may have started to wonder what happens if the same variable is used multiple times in the query.
+By the principle of least surprise, this notation (showcased in~\cref{mmql:figure:samevar}) means that all occurrences of the same variable refer to the same value.
+This is useful in cases similar to the one shown in~\cref{mmql:figure:samevar}, where we want to use a graph pattern to specify that multiple sources point to the same thing.
+This would have been also possible to express without this feature, simply using different variables together with \texttt{FILTER}, however this feature greatly aids the expressiveness of MMQL.
+
+\subsection{Data Types}
+
+MMQL considers a few primitive data types, aside from categorical data: strings, integers, and booleans.
+This set of data types may however be freely extended.
+SPARQL supports working with floating-point numbers, dates or language-tagged strings, and in principle, there is nothing preventing MMQL from being extended to do so as well.
+In addition, the set of filtering operations in MMQL may also be freely extended together with the set of data types, allowing the future inclusion of features like regular expression matching.
+
+\subsection{Filtering and Aggregation}
+
+\texttt{FILTER} clauses may be used to introduce selection into the query, with the valid operators being $=$ (equality) and $!=$ (inequality), as well as four other comparison operators: $<$, $<=$, $>$, $>=$.
+
+In addition to \texttt{FILTER} clauses, MMQL also offers \texttt{VALUES} clauses, which constrain a variable to a set of possible values, specified in the form of \texttt{VALUES ?var \{ "value1", "value2" \}}.
+
+Aggregations naturally may be used as one of the operands of a comparison expression, as well as elsewhere in the object position in a triple.
+The available aggregation functions are \texttt{COUNT}, \texttt{SUM}, \texttt{AVG}, \texttt{MIN} and \texttt{MAX}.
+
+\subsection{Set Operations}
+
+As shown in~\cref{tab:MM-sparql}, MMQL also supports set operations in the capacity that one would expect a fully-fledged query language to support them.
+
+\begin{figure}[ht]
+\begin{code}
+SELECT {
+    ?customer boughtOrReviewed ?productName .
+}
+WHERE {
+    {
+        ?customer 60/34 ?productName .
+    }
+    UNION
+    {
+        ?customer 76/34 ?productName .
+    }
+}
+\end{code}
+\caption{Using UNION in MMQL.}\label{mmql:figure:union}
+\end{figure}
+
+The \texttt{UNION} statement combines the result sets from two graph patterns in the \texttt{WHERE} clause.
+Such a case is shown in~\cref{mmql:figure:union}, where we can see a query selecting a list of product names for each customer, that the customer bought or reviewed.
+While both patterns combined by \texttt{UNION} do not necessarily need to have an identical structure, all variables used in \texttt{SELECT} must have their value definitely bound in all \texttt{UNION} variants.
+This rule applies in other situations as well - the only time when variables are allowed to be unassigned is when they are part of an \texttt{OPTIONAL} statement, which accepts a graph pattern and marks it as optional, leaving its variables unbound if its pattern is not present in the data.
+
+\begin{figure}[ht]
+\begin{code}
+SELECT {
+    ?customer bought ?productName .
+}
+WHERE {
+    ?customer 60 ?product .
+    ?product 34 ?productName .
+    MINUS {
+        ?product 34 "Lord of the Rings" .
+    }
+}
+\end{code}
+\caption{Using MINUS in MMQL.}\label{mmql:figure:minus}
+\end{figure}
+
+The \texttt{MINUS} statement again takes two graph patterns, and results in solutions which are compatible with the first graph pattern, but not the second one.
+This is showcased in~\cref{mmql:figure:minus}, where we can see a query returning customers and their purchased products, but not returning any customers who happened to order the Lord of the Rings book.
+
+The reader may notice that while query languages like SQL often also possess an \texttt{INTERSECT} clause representing set intersection, MMQL does not.
+This is by design, as modeling set intersection in terms of graph patterns simply means merging the patterns into a single one, returning matches for both patterns.
+
+\subsection{Subqueries}
+
+Naturally, the expressive power of MMQL is not sufficient for some queries as defined so far.
+For example, let us consider the situation where we want to find out the highest rating given to any item by any user, and we want to select all items having received such a rating.
+This is not achievable with a single query in MMQL, since we need to perform a calculation across all instances of a particular kind, and then continue working with that value.
+
+Therefore it is necessary to use query nesting - MMQL supports writing queries inside the \texttt{WHERE} clause of higher-level queries.
+In such a case, variables from the \texttt{SELECT} clause of the nested query are bound into the context of the \texttt{WHERE} clause of the containing query.
+We can see this happening in~\cref{mmql:figure:nestedquery}, where an inner query computes the maximal rating given to any product, with the instance category for the inner query \texttt{SELECT} clause just containing a single active domain row for the \texttt{maxRating} object, having the value of the maximal product rating.
+As a result, we can bind the variable into the context of the containing query, and filter only products which have received the highest available rating in any review.
+
+\begin{figure}[ht]
+\begin{code}
+SELECT {
+    ?product hasMaxRating ?rating ;
+        name ?productName .
+}
+WHERE {
+    ?review 40 ?product ;
+        42 ?rating .
+    ?product 34 ?productName .
+
+    {
+        SELECT {
+            _:maxRating rating MAX(?oneRating) as ?maxRating .
+        }
+        WHERE {
+            ?review 40 ?product ;
+                42 ?oneRating .
+        }
+    }
+
+    FILTER(?rating = ?maxRating)
+}
+\end{code}
+\caption{Nested query in MMQL.}\label{mmql:figure:nestedquery}
+\end{figure}
+
+It should be noted that joining the inner \texttt{SELECT} variables into the outer \texttt{WHERE} clause only works when there is a common variable to use as a join point.
+The reason why this join point is not required in~\cref{mmql:figure:nestedquery} is that it can be inferred from the shape of the inner \texttt{SELECT} clause that it will only contain a single active domain row, and can therefore be used as a constant in the outer query.
+
+There is a tradeoff to take note of here in connection to the way nested queries are joined to parent queries.
+As presented, it is not valid to form subqueries in which the schema permits multiple active domain rows without a join point.
+However, there may be queries which will always return a single active domain row despite their schema allowing them to return multiple (for example if we filter the set of customers by their ID).
+In these instances, it may be desirable to defer the validation of the subquery join point until the subquery has already been executed, and to allow the joining of queries which only contain a single active domain row regardless of their result schema.
+However, this would mean that the validity of such a query cannot be verified without executing it.
+As such, we posit that both approaches are valid, and we chose the former approach due to its user-friendliness.
+
+\subsection{Grouping}
+\label{mmql:subsection:grouping}
+
+The perceptive reader familiar with SPARQL may have noticed that we did not mention the inclusion of the equivalent of SPARQL's \texttt{GROUP BY} in MMQL.
+This is not an accident, but rather a conscious decision, which was made in light of the fact that MMQL already implicitly supports grouping in another way.
+In the context of grouping without aggregation, there is not much to consider, as this can be achieved using graph patterns.
+
+\begin{figure}[ht]
+\begin{code}
+SELECT {
+    ?product name ?productName ;
+        avgRating AVG(?rating) AS ?avgRating .
+}
+WHERE {
+    ?review 40 ?product ;
+        42 ?rating .
+    ?product 34 ?productName .
+}
+\end{code}
+\caption{MMQL query containing implicit grouping.}\label{mmql:figure:groupingmmql}
+\end{figure}
+
+However, in the context of aggregations across grouped sets of solutions, things get more interesting.
+Aggregations in MMQL are evaluated based on the dependence of variables on other variables, which is best demonstrated using the query shown in~\cref{mmql:figure:groupingmmql} as an example.
+Let us examine the \texttt{SELECT} clause in this query, where we can see that the value of the \texttt{?rating} variable is dependent on the value of the \texttt{product} variable\footnote{This is achieved using morphism contractions, which are explained later in~\cref{algo:subsection:projection}.}.
+For this reason, the aggregation of the \texttt{?rating} variable is also dependent on the value of the \texttt{?product} variable, effectively meaning that it will be evaluated separately for each product.
+The equivalent PostgreSQL query which could be generated from the MMQL query in~\cref{mmql:figure:groupingmmql} is shown in~\cref{mmql:figure:groupingsql}.
+
+\begin{figure}[ht]
+\begin{code}
+SELECT product.name, AVG(review.rating)
+FROM review INNER JOIN product ON review.productId = product.id
+GROUP BY review.productId
+\end{code}
+\caption{SQL query equivalent to the MMQL query shown in~\cref{mmql:figure:groupingmmql}.}\label{mmql:figure:groupingsql}
+\end{figure}
+
+For completeness, we will also mention that aggregations across an entire kind are also possible in MMQL. An example of this was already shown in the subquery of the query shown in~\cref{mmql:figure:nestedquery}.
+This is achieved by simply making the aggregation not depend on any variables other than the aggregated variable itself.

@@ -1,0 +1,50 @@
+\chapter*{Conclusion}
+\addcontentsline{toc}{chapter}{Conclusion}
+
+Multi-model data is a very complex domain with many unsolved problems and much additional research needed, as the reader is surely aware after reading this thesis.
+This is especially true for the problem of unified querying of multi-model data, for which no widely usable proposals exist at the time of writing of this thesis, with the vast majority of existing multi-model querying solutions necessitating the knowledge of the specifics of each model involved.
+Despite these challenges, in this thesis we worked towards creating one of the first proposals for a unified multi-model querying approach, as we believe that enabling the formation of multi-model queries in a model-agnostic way has massive potential upsides.
+
+To this end, we first introduced the unified multi-model data representation~\cite{one_model}\cite{unified_representation} which we based our efforts on.
+Following this, we examined the existing field of graph query languages, as a category may be thought of as a directed multigraph, and selected SPARQL as the prime candidate for adaption to a categorical domain.
+We then proposed MMQL, a categorical multi-model query language which given the aforementioned unified categorical data representation, allows users to query across multiple models and databases in a unified, model- and database-agnostic fashion.
+In addition to introducing all MMQL concepts together with concrete query examples, we also provided a full formal grammar for this proposed query language.
+The main characteristics of MMQL include strong expressiveness in terms of matching graph patterns, familiarity thanks to structural similarities to SPARQL, and leveraging the power of the categorical representation to form elegant graph traversals.
+
+A query language is nothing without the supporting algorithms necessary for its implementation.
+For this reason, following the design of MMQL, we also proposed an approach for the implementation of MMQL for multi-model, multi-database scenarios potentially involving data redundancy.
+The main accomplishment of our proposed approach is the fact that it can be decomposed into clear, well-defined steps, whose composition forms the whole implementation algorithm.
+Since this is the first such approach designed, we focused our design on comprehensibility and simplicity, discussing additional complexities along the way.
+During our presentation of our proposed approach for implementing MMQL, we made a special effort to point out any flaws or limitations of our approach, as this will allow further work on this subject to iterate upon our solution.
+
+Following the lengthy design chapters about MMQL and its supporting algorithms, we put our designs to the test by creating a proof-of-concept implementation of MMQL called MM-quecat.
+This implementation is limited in scope by the amount of time and work required to propose the entire approach, as well as by constraints placed upon it due to the dependence on another piece of software called MM-evocat, which is in active development, and not all of its required features are finished.
+Despite this, MM-quecat serves its purpose as a verification of the validity of our process, functioning as a unified query solution for a subset of MMQL for the PostgreSQL and MongoDB databases.
+Although we present MM-quecat in this thesis as it exists in its current state, its feature set will continue to evolve in the future, as the author of this thesis is the co-author of a not-yet-published demo paper showcasing MM-quecat and its unified multi-model querying capabilities, which we are excited to share with the wider multi-model data community.
+Related to this, we also presented our proposal for how a graphical query tool for MMQL may look like as part of MM-quecat, demonstrating the final product we will be striving for with our future academic endeavors.
+
+In order to properly evaluate the weaknesses and limitations of our approach, we also performed a handful of experimental evaluations of MM-quecat in an experiment involving PostgreSQL and MongoDB.
+We acknowledge that performance is key in the world of multi-model data, but achieving near-native performance is simply too ambitious for an approach with little to no previous related work to support it.
+For this reason, we collected query execution time data as well as profiler data during the experiments, and we discussed their implications for our approach.
+
+Overall, we feel that we accomplished all goals which we outlined in the introduction of this thesis, having proposed an innovative approach for unified multi-model querying complete with our own query language called MMQL, laying the groundwork for future research.
+
+\chapter*{Future Work}
+\addcontentsline{toc}{chapter}{Future Work}
+
+While presenting MMQL, we provided a full formal grammar, discussed its features, and we showed a comparison of its feature set to existing single-model query languages.
+However, we believe that a more formal analysis and verification of the language may be desirable, in order to formally express the capabilities and limitations of MMQL.
+Similarly, MMQL may be further extended with features like more aggregation or filtering options, together with additional data types.
+
+When it comes to our proposed MMQL implementation approach, we mentioned a number of open problems in the world of multi-model data which require further study.
+More work is needed in the area of multi-model query planning, as there are limited academic resources on this matter, and existing multi-model query planners within polystores do not fit neatly into our problem domain, as they do not take into considerations many variables relevant to our approach.
+Together with multi-model query planning, we also mentioned the problem of multi-model join ordering, which also lacks robust and general solutions.
+
+When it comes to the MMQL implementation approach proposed in this thesis, we acknowledge that it has many limitations and weaknesses, which we discussed at great length in various chapters.
+Perhaps the largest one of them all is performance, and with performance and scalability often being the driving force behind using multiple data models to begin with, we recognize the need for more optimal versions of algorithms we proposed, possibly using some or all of the optimizations we discussed along the way.
+There is room for optimization in almost all areas of the proposed approach, from ensuring that the generated native queries are as optimal as possible, to optimizing the manipulation of categorical data in order to minimize the overhead introduced.
+In general, the goal for unified multi-model querying in the future should be to achieve near-native performance when compared to individual database systems while preserving the benefits of unified querying.
+
+Lastly, our MMQL implementation called MM-quecat is purely experimental in nature, and it does not contain all MMQL features for various reasons outlined in this thesis.
+In order to bring MM-quecat closer to real-world applicability, we will continue to improve and enhance its implementation as part of our future research efforts.
+Coupled with this, we believe that a graphical query tool would be highly beneficial for the end user experience, which is why we are also working on the user interface part of MM-quecat, which we hope to demonstrate to the academic community in the coming months.

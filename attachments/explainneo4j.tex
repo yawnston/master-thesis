@@ -1,0 +1,111 @@
+\section{Query Planner Information in Neo4j}
+\label{attachment:plannerneo4j}
+
+Below, we can see the query planner information exposed by the \texttt{EXPLAIN} statement in Neo4j for a simple query matching nodes with the \texttt{name} property set to ``Tom Hanks''.
+For each stage in the query plan, the estimated number of rows is returned.
+
+\begin{code}
+{
+  "query": {
+    "text": "EXPLAIN MATCH (tom {name: \"Tom Hanks\"}) RETURN tom",
+    "parameters": {}
+  },
+  "queryType": "r",
+  "counters": {
+    "_stats": {
+      "nodesCreated": 0,
+      "nodesDeleted": 0,
+      "relationshipsCreated": 0,
+      "relationshipsDeleted": 0,
+      "propertiesSet": 0,
+      "labelsAdded": 0,
+      "labelsRemoved": 0,
+      "indexesAdded": 0,
+      "indexesRemoved": 0,
+      "constraintsAdded": 0,
+      "constraintsRemoved": 0
+    },
+    "_systemUpdates": 0
+  },
+  "updateStatistics": {
+    "_stats": {
+      "nodesCreated": 0,
+      "nodesDeleted": 0,
+      "relationshipsCreated": 0,
+      "relationshipsDeleted": 0,
+      "propertiesSet": 0,
+      "labelsAdded": 0,
+      "labelsRemoved": 0,
+      "indexesAdded": 0,
+      "indexesRemoved": 0,
+      "constraintsAdded": 0,
+      "constraintsRemoved": 0
+    },
+    "_systemUpdates": 0
+  },
+  "plan": {
+    "operatorType": "ProduceResults@neo4j",
+    "identifiers": [
+      "tom"
+    ],
+    "arguments": {
+      "planner-impl": "IDP",
+      "Details": "tom",
+      "PipelineInfo": "Fused in Pipeline 0",
+      "planner-version": "4.4",
+      "runtime-version": "4.4",
+      "runtime": "PIPELINED",
+      "runtime-impl": "PIPELINED",
+      "version": "CYPHER 4.4",
+      "EstimatedRows": 17,
+      "planner": "COST"
+    },
+    "children": [
+      {
+        "operatorType": "Filter@neo4j",
+        "identifiers": [
+          "tom"
+        ],
+        "arguments": {
+          "Details": "tom.name = $autostring_0",
+          "EstimatedRows": 17,
+          "PipelineInfo": "Fused in Pipeline 0"
+        },
+        "children": [
+          {
+            "operatorType": "AllNodesScan@neo4j",
+            "identifiers": [
+              "tom"
+            ],
+            "arguments": {
+              "Details": "tom",
+              "EstimatedRows": 340,
+              "PipelineInfo": "Fused in Pipeline 0"
+            },
+            "children": []
+          }
+        ]
+      }
+    ]
+  },
+  "profile": false,
+  "notifications": [],
+  "server": {
+    "address": "localhost:7687",
+    "version": "Neo4j/4.4.5",
+    "agent": "Neo4j/4.4.5",
+    "protocolVersion": 4.4
+  },
+  "resultConsumedAfter": {
+    "low": 0,
+    "high": 0
+  },
+  "resultAvailableAfter": {
+    "low": 0,
+    "high": 0
+  },
+  "database": {
+    "name": "neo4j"
+  }
+}
+\end{code}

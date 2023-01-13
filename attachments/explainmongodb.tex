@@ -1,0 +1,151 @@
+\section{Query Planner Information in MongoDB}
+\label{attachment:explainmongodb}
+
+Below, we can see two sets of query planner information returned by MongoDB. The first output shown calls the \texttt{explain()} function with the default \texttt{queryPlanner} mode, which does not execute the query, but also does not include cost or the approximate result size.
+
+The second output uses the \texttt{executionStats} mode, which executes the query, and subsequently returns query plan information including cost information (represented in the form of the \texttt{works} property signifying units of work required).
+
+\begin{code}
+db.theaters.explain().find({ theaterId: { $gt: 1020 } });
+{
+  "queryPlanner" : {
+    "plannerVersion" : 1,
+    "namespace" : "sample_mflix.theaters",
+    "indexFilterSet" : false,
+    "parsedQuery" : {
+      "theaterId" : {
+        "$gt" : 1020
+      }
+    },
+    "winningPlan" : {
+      "stage" : "FETCH",
+      "inputStage" : {
+        "stage" : "IXSCAN",
+        "keyPattern" : {
+          "theaterId" : 1
+        },
+        "indexName" : "theaterId_1",
+        "isMultiKey" : false,
+        "multiKeyPaths" : {
+          "theaterId" : [ ]
+        },
+        "isUnique" : true,
+        "isSparse" : false,
+        "isPartial" : false,
+        "indexVersion" : 2,
+        "direction" : "forward",
+        "indexBounds" : {
+          "theaterId" : [
+            "(1020.0, inf.0]"
+          ]
+        }
+      }
+    },
+    "rejectedPlans" : [ ]
+  }
+}
+\end{code}
+
+\pagebreak
+
+\begin{code}
+db.theaters.explain({verbosity: "executionStats"}).find(
+    {theaterId: {$gt: 1020}}
+);
+{
+  "queryPlanner" : {
+    "plannerVersion" : 1,
+    "namespace" : "sample_mflix.theaters",
+    "indexFilterSet" : false,
+    "parsedQuery" : {
+      "theaterId" : {
+        "$gt" : 1020
+      }
+    },
+    "winningPlan" : {
+      "stage" : "FETCH",
+      "inputStage" : {
+        "stage" : "IXSCAN",
+        "keyPattern" : {
+          "theaterId" : 1
+        },
+        "indexName" : "theaterId_1",
+        "isMultiKey" : false,
+        "multiKeyPaths" : {
+          "theaterId" : [ ]
+        },
+        "isUnique" : true,
+        "isSparse" : false,
+        "isPartial" : false,
+        "indexVersion" : 2,
+        "direction" : "forward",
+        "indexBounds" : {
+          "theaterId" : [
+            "(1020.0, inf.0]"
+          ]
+        }
+      }
+    },
+    "rejectedPlans" : [ ]
+  },
+  "executionStats" : {
+    "executionSuccess" : true,
+    "nReturned" : 861,
+    "executionTimeMillis" : 1,
+    "totalKeysExamined" : 861,
+    "totalDocsExamined" : 861,
+    "executionStages" : {
+      "stage" : "FETCH",
+      "nReturned" : 861,
+      "executionTimeMillisEstimate" : 0,
+      "works" : 862,
+      "advanced" : 861,
+      "needTime" : 0,
+      "needYield" : 0,
+      "saveState" : 6,
+      "restoreState" : 6,
+      "isEOF" : 1,
+      "invalidates" : 0,
+      "docsExamined" : 861,
+      "alreadyHasObj" : 0,
+      "inputStage" : {
+        "stage" : "IXSCAN",
+        "nReturned" : 861,
+        "executionTimeMillisEstimate" : 0,
+        "works" : 862,
+        "advanced" : 861,
+        "needTime" : 0,
+        "needYield" : 0,
+        "saveState" : 6,
+        "restoreState" : 6,
+        "isEOF" : 1,
+        "invalidates" : 0,
+        "keyPattern" : {
+          "theaterId" : 1
+        },
+        "indexName" : "theaterId_1",
+        "isMultiKey" : false,
+        "multiKeyPaths" : {
+          "theaterId" : [ ]
+        },
+        "isUnique" : true,
+        "isSparse" : false,
+        "isPartial" : false,
+        "indexVersion" : 2,
+        "direction" : "forward",
+        "indexBounds" : {
+          "theaterId" : [
+            "(1020.0, inf.0]"
+          ]
+        },
+        "keysExamined" : 861,
+        "seeks" : 1,
+        "dupsTested" : 0,
+        "dupsDropped" : 0,
+        "seenInvalidated" : 0
+      }
+    },
+    "allPlansExecution" : [ ]
+  }
+}
+\end{code}

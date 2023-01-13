@@ -1,0 +1,35 @@
+\section{Query Planner Information in PostgreSQL}
+\label{attachment:plannerpostgresql}
+
+Below, we can see the query planner information exposed by the \texttt{EXPLAIN} statement in PostgreSQL for a simple query selecting all theaters whose primary identifier is greater than a constant number.
+We can see that the set of information returned contains a full description of the winning query plan, complete with estimated costs for each step of the plan, and the information about which indexes the query is using.
+
+\begin{code}
+EXPLAIN (FORMAT YAML) SELECT * FROM theaters WHERE id > 1010;
+
+          QUERY PLAN
+-------------------------------
+ - Plan: 
+    Node Type: "Bitmap Heap Scan"
+    Parallel Aware: false
+    Async Capable: false
+    Relation Name: "theaters"
+    Alias: "theaters"
+    Startup Cost: 6.34
+    Total Cost: 19.88
+    Plan Rows: 283
+    Plan Width: 68
+    Recheck Cond: "(id > 1010)"
+    Plans: 
+      - Node Type: "Bitmap Index Scan"
+        Parent Relationship: "Outer"
+        Parallel Aware: false
+        Async Capable: false
+        Index Name: "theaters_pkey"
+        Startup Cost: 0.00
+        Total Cost: 6.27
+        Plan Rows: 283
+        Plan Width: 0
+        Index Cond: "(id > 1010)"   
+(1 row)
+\end{code}
